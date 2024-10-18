@@ -45,8 +45,8 @@ class CVRService:
         
         # Safely access the CVR number
         try:
-            #cvr_id = data['hits']['hits'][0]['_source']['Vrvirksomhed']['cvrNummer']
-            cvr_id = data['hits']
+            cvr_id = data['hits']['hits'][0]['_source']['Vrvirksomhed']['cvrNummer']
+            #cvr_id = data['hits']
             print("cvr number of company:", cvr_id)
             return cvr_id
         except KeyError as e:
