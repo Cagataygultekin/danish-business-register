@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from app.services.cvr_service import CVRService
-from app.dtos.cvr_dto import CompanyRequest, CompanyResponse, CompanyInfo, CompanySearchResponse, CompanyDataResponse, GeneralInfoResponse
+from app.dtos.cvr_dto import CompanyRequest, CompanyResponse, CompanyInfo, CompanySearchResponse, CompanyDataResponse, GeneralInfoResponse,PersonRequest, PersonInfoResponse, OwnershipInfo, OwnershipResponse,KeyIndividualsResponse, KeyIndividual
 
 router = APIRouter()
 cvr_service = CVRService()
@@ -61,8 +61,66 @@ def get_general_info(cvr_id: int):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/get-ownership-info/{cvr_id}", response_model=OwnershipResponse)
+def get_ownership_info(cvr_id: int):
+    """
+    Endpoint to retrieve ownership information by CVR ID.
+    """
+    try:
+        ownership_info = cvr_service.get_ownership_info_by_cvr_id(cvr_id)
+        return OwnershipResponse(
+            cvr_number=ownership_info["cvr_number"],
+            company_name=ownership_info["company_name"],
+            legal_owners=ownership_info["legal_owners"],  # Directly passing list of names
+            beneficial_owners=ownership_info["beneficial_owners"]  # Directly passing list of names
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
+    
 
+@router.get("/get-key-individuals/{cvr_id}", response_model=KeyIndividualsResponse)
+def get_key_individuals(cvr_id: int):
+    """
+    Endpoint to retrieve key individuals like Management, Board of Directors, Founders, and Fully Liable Partners by CVR ID.
+    """
+    try:
+        key_individuals = cvr_service.get_key_individuals_by_cvr_id(cvr_id)
+
+        # Convert data into DTO format
+        response = KeyIndividualsResponse(
+            management=[KeyIndividual(**ind) for ind in key_individuals["management"]],
+            board_of_directors=[KeyIndividual(**ind) for ind in key_individuals["board_of_directors"]],
+            founders=[KeyIndividual(**ind) for ind in key_individuals["founders"]],
+            fully_liable_partners=[KeyIndividual(**ind) for ind in key_individuals["fully_liable_partners"]],
+        )
+        return response
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    
+#Doesn't work part starts here
+    ###
+    ###
+    ###    
+
+@router.post("/get-person-info", response_model=PersonInfoResponse)
+def get_person_info(person_request: PersonRequest):
+    """
+    Endpoint to retrieve person information by their name.
+    """
+    try:
+        person_info = cvr_service.get_person_info_by_name(person_request.name)
+        return PersonInfoResponse(
+            full_name=person_info["full_name"],
+            address="N/A",  # Placeholder, we're only testing full name
+            postal_code="N/A",
+            city="N/A",
+            affiliations=[]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 

@@ -3,6 +3,7 @@ from app.config import Settings
 from dotenv import load_dotenv
 import os
 import json
+import re
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -197,11 +198,6 @@ class CVRService:
 
 
 
-
-
-
-
-
     def _format_address(self, address_data: dict) -> str:
         """
         Helper method to format the company address.
@@ -222,7 +218,258 @@ class CVRService:
 
         return formatted_address if formatted_address else "N/A"
 
+
+
+
+
+
+    def get_ownership_info_by_cvr_id(self, cvr_id: int) -> dict:
+        """
+        Searches for a company by CVR ID and returns its legal, beneficial, and possible ownership information.
+        """
+        query = {
+            "query": {
+                "match": {
+                    "Vrvirksomhed.cvrNummer": cvr_id
+                }
+            }
+        }
+
+        response = requests.post(
+            f"{self.base_url}",
+            auth=self.auth,
+            json=query
+        )
+
+        # Check if response status is 200
+        if response.status_code != 200:
+            raise Exception(f"ElasticSearch query failed with status code {response.status_code}")
+
+        # Log response content for debugging
+        data = response.json()
+        
+        try:
+            # Check and access company data
+            hits = data.get('hits', {}).get('hits', [])
+            if not hits:
+                raise ValueError("No hits found in response")
+
+            company_data = hits[0].get('_source', {}).get('Vrvirksomhed', {})
+
+            # Initialize variables for company info and ownership
+            company_name = company_data.get('virksomhedMetadata', {}).get('nyesteNavn', {}).get('navn', 'N/A')
+            cvr_number = company_data.get('cvrNummer', 'N/A')
+            legal_owners, beneficial_owners, possible_owners, possible_owners_person = [], [], [], []
+
+            # Access participant relations for ownership data
+            participant_relations = company_data.get('deltagerRelation', [])
+            print("Participant Relations Count:", len(participant_relations))
+
+            organization_indicators = {"A/S", "ApS", "Inc.", "LLC", "S.A.", "P/S", "Ltd.", "I/S", "INC."}
+
+            for relation in participant_relations:
+                # Check if relation or 'deltager' field is None
+                if relation is None or relation.get('deltager') is None:
+                    print("Skipping a None relation or missing 'deltager'")
+                    continue
+
+                deltagertype = relation.get('deltager', {}).get('enhedstype', "")
+                print("Deltagertype:", deltagertype)  # Debugging output
+
+                # Process each name entry in 'navne'
+                navne_list = relation.get('deltager', {}).get('navne', [])
+                for navn_entry in navne_list:
+                    owner_name = navn_entry.get('navn', "Unknown")
+                    
+                    # Distinguish between companies and individual owners
+                    if any(indicator in owner_name for indicator in organization_indicators) or deltagertype == "VIRKSOMHED":
+                        possible_owners.append(owner_name)
+                        print(f"Added possible company owner: {owner_name}")
+                    else:
+                        possible_owners_person.append(owner_name)
+                        print(f"Added possible individual owner: {owner_name}")
+
+            # Compile result
+            result = {
+                "cvr_number": cvr_number,
+                "company_name": company_name,
+                "legal_owners": legal_owners,
+                "beneficial_owners": beneficial_owners,
+                "possible_owners": list(dict.fromkeys(possible_owners)),
+                "possible_owners_person": list(dict.fromkeys(possible_owners_person))
+            }
+            print("Ownership Info Result:", result)  # Final debug output
+            return result
+
+        except Exception as e:
+            print("Error:", str(e))  # Log the error message
+            raise Exception(f"An error occurred while parsing the company data: {str(e)}")
+
+
+
+
+
+    def get_key_individuals_by_cvr_id(self, cvr_id: int) -> dict:
+        """
+        Searches for a company by CVR ID and returns key individuals like Management,
+        Board of Directors, Founders, and Fully Liable Partners.
+        """
+        query = {
+            "query": {
+                "match": {
+                    "Vrvirksomhed.cvrNummer": cvr_id
+                }
+            }
+        }
+
+        response = requests.post(
+            f"{self.base_url}",
+            auth=self.auth,
+            json=query
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"ElasticSearch query failed with status code {response.status_code}")
+
+        data = response.json()
+        hits = data.get('hits', {}).get('hits', [])
+
+        if not hits:
+            raise ValueError("No hits found for the provided CVR ID")
+
+        company_data = hits[0].get('_source', {}).get('Vrvirksomhed', {})
+
+        key_individuals = {
+            "management": [],
+            "board_of_directors": [],
+            "founders": [],
+            "fully_liable_partners": []
+        }
+
+        # Look for key individual roles in `deltagerRelation`
+        ledelsesorgan_data = company_data.get('deltagerRelation', [])
+        for entry in ledelsesorgan_data:
+            organisations = entry.get('organisationer', [])
+            for org in organisations:
+                hovedtype = org.get('hovedtype', None)
+                
+                # Skip unwanted hovedtype values
+                if hovedtype not in ["LEDELSESORGAN", "STIFTERE", "FULDT_ANSVARLIG_DELTAGERE"]:
+                    print(f"Skipping hovedtype: {hovedtype}")  # Log for debugging
+                    continue
+                       
+                # Set role name and extract name and address details
+                role_name = org.get('organisationsNavn', [{}])[0].get('navn', 'Unknown') if org.get('organisationsNavn') else 'Unknown'
+                individuals = entry.get('deltager', {}).get('navne', [{}])[0].get('navn', 'Unknown') if entry.get('deltager', {}).get('navne') else 'Unknown'
+
+                # Check for secret address
+                if entry.get('deltager', {}).get('adresseHemmelig', False):
+                    address = "Secret Address"
+                else:
+                    # Extract address based on the available fields
+                    beliggenhedsadresse = entry.get('deltager', {}).get('beliggenhedsadresse', [])
+                    address = "Unknown address"
+                    if beliggenhedsadresse and isinstance(beliggenhedsadresse, list):
+                        address_data = beliggenhedsadresse[0] if beliggenhedsadresse[0] is not None else {}
+                        if address_data.get('fritekst'):
+                            # Handle multi-line addresses in `fritekst`
+                            address = address_data['fritekst'].replace('\n', ', ').strip()
+                        else:
+                            # Safely get each part of the address, avoiding None values
+                            vejnavn = str(address_data.get('vejnavn', '') or '').strip()
+                            husnummer = str(address_data.get('husnummerFra', '') or '').strip()
+                            postnummer = str(address_data.get('postnummer', '') or '').strip()
+                            postdistrikt = str(address_data.get('postdistrikt', '') or '').strip()
+                            kommune = str((address_data.get('kommune') or {}).get('kommuneNavn', '') or '').strip()
+                            landekode = str(address_data.get('landekode', '') or '').strip()
+
+                            # Filter out empty strings and join remaining parts
+                            address_parts = [vejnavn, husnummer, postnummer, postdistrikt, kommune, landekode]
+                            address = ', '.join(part for part in address_parts if part) if any(address_parts) else "Unknown address"
+
+                print("hovedtype:",hovedtype)
+                print("role_name:",role_name)            
+                # Categorize based on the `hovedtype` field
+                if hovedtype == "LEDELSESORGAN":
+                    if role_name == "Bestyrelse":
+                        key_individuals["board_of_directors"].append({"name": individuals, "address": address})
+                    elif role_name == "Direktion":
+                        key_individuals["management"].append({"name": individuals, "address": address})
+                elif hovedtype == "STIFTERE":
+                    key_individuals["founders"].append({"name": individuals, "address": address})
+                elif hovedtype == "FULDT_ANSVARLIG_DELTAGERE":
+                    key_individuals["fully_liable_partners"].append({"name": individuals, "address": address})
+
+        return key_individuals
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
+    
+    
+    #Doesn't work part starts here
+    ###
+    ###
+    ###
+    
+    def get_person_info_by_name(self, name: str) -> dict:
+        """
+        Searches for a person by name and returns their full name.
+        """
+        query = {
+            "query": {
+                "match": {
+                    "Vrvirksomhed.personer.navn": name
+                }
+            }
+        }
+
+        response = requests.post(
+            f"{self.base_url}/person-search-endpoint",  # Update with actual endpoint URL
+            auth=self.auth,
+            json=query
+        )
+
+        if response.status_code != 200:
+            raise Exception(f"Person search query failed with status code {response.status_code}")
+
+        data = response.json()
+
+        # Handle parsing of person data here
+        person_data = data['hits']['hits'][0]['_source']['Vrvirksomhed']['personer']
+
+        try:
+            full_name = person_data['navn']
+            return {
+                "full_name": full_name
+            }
+        except KeyError as e:
+            raise Exception(f"Key error accessing person data: {str(e)}")
+        except Exception as e:
+            raise Exception(f"An error occurred while parsing person data: {str(e)}")
+
+    
+    
+    
+
     
     
     

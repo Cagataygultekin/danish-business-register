@@ -36,6 +36,57 @@ class GeneralInfoResponse(BaseModel):
     advertising_protection: str
     status: str
 
+
+
+#Ownership
+class OwnershipInfo(BaseModel):
+    owner_name: str
+    ownership_percentage: str
+    voting_percentage: str
+
+class OwnershipResponse(BaseModel):
+    cvr_number: int
+    company_name: str
+    legal_owners: List[str]
+    beneficial_owners: List[str]
+#######
+
+#Key individuals
+class KeyIndividual(BaseModel):
+    name: str
+    address: str
+
+class KeyIndividualsResponse(BaseModel):
+    management: List[KeyIndividual]
+    board_of_directors: List[KeyIndividual]
+    founders: List[KeyIndividual]
+    fully_liable_partners: List[KeyIndividual]
+####    
+
+
+#Doesn't work part starts here
+    ###
+    ###
+    ###
+    
+#Person
+class PersonRequest(BaseModel):
+    name: str
+
+class PersonAffiliation(BaseModel):
+    company_name: str
+    role: str
+
+class PersonInfoResponse(BaseModel):
+    full_name: str
+    address: str
+    postal_code: str
+    city: str
+    affiliations: List[PersonAffiliation]
+#####
+
+
+
     
 ####not working correctly
 class CompanyDataResponse(BaseModel):
