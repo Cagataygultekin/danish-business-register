@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from app.services.cvr_service import CVRService
-from app.dtos.cvr_dto import CompanyRequest, CompanyResponse, CompanyInfo, CompanySearchResponse, CompanyDataResponse, GeneralInfoResponse,PersonRequest, PersonInfoResponse, OwnershipInfo, OwnershipResponse,KeyIndividualsResponse, KeyIndividual
+from app.dtos.cvr_dto import CompanyRequest, CompanyResponse, CompanyInfo, CompanySearchResponse, CompanyDataResponse, GeneralInfoResponse,PersonRequest, PersonInfoResponse, PossibleOwnershipInfo, PossibleOwnershipResponse,KeyIndividualsResponse, KeyIndividual, OwnershipInfo, OwnershipResponse
 
 router = APIRouter()
 cvr_service = CVRService()
@@ -61,21 +61,22 @@ def get_general_info(cvr_id: int):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/get-ownership-info/{cvr_id}", response_model=OwnershipResponse)
-def get_ownership_info(cvr_id: int):
+@router.get("/get-possible-ownership-info/{cvr_id}", response_model=PossibleOwnershipResponse)
+def get_possible_ownership_info(cvr_id: int):
     """
-    Endpoint to retrieve ownership information by CVR ID.
+    Endpoint to retrieve possible ownership information by CVR ID.
     """
     try:
-        ownership_info = cvr_service.get_ownership_info_by_cvr_id(cvr_id)
-        return OwnershipResponse(
-            cvr_number=ownership_info["cvr_number"],
-            company_name=ownership_info["company_name"],
-            legal_owners=ownership_info["legal_owners"],  # Directly passing list of names
-            beneficial_owners=ownership_info["beneficial_owners"]  # Directly passing list of names
+        possible_ownership_info = cvr_service.get_possible_ownership_info_by_cvr_id(cvr_id)
+        return PossibleOwnershipResponse(
+            cvr_number=possible_ownership_info["cvr_number"],
+            company_name=possible_ownership_info["company_name"],
+            possible_legal_owners=possible_ownership_info["possible_legal_owners"],  # Directly passing list of names
+            possible_beneficial_owners=possible_ownership_info["possible_beneficial_owners"]  # Directly passing list of names
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
 
     
 
@@ -99,7 +100,18 @@ def get_key_individuals(cvr_id: int):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    
+
+@router.get("/ownership/{cvr_id}", response_model=OwnershipResponse)
+def get_ownership_info(cvr_id: int):
+    """
+    Endpoint to retrieve both legal and beneficial ownership information for a company by CVR ID.
+    """
+    try:
+        ownership_data = cvr_service.get_ownership_info(cvr_id)
+        return ownership_data
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+      
 #Doesn't work part starts here
     ###
     ###

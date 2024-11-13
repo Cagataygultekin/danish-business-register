@@ -21,5 +21,10 @@ curl -X GET "http://localhost:8000/cvr/get-ownership-info/26366321" -H "accept: 
 curl -X GET "http://localhost:8000/cvr/get-key-individuals/10403782" -H "accept: application/json"
 
 
+Raw response writing into txt:
+    # Write the raw response to a file
+    with open("cvr_raw_response3.txt", "w") as f:
+        json.dump(data, f, indent=4)  # Pretty-print with indentation for readability
+
 #Doesn't work
 curl -X POST "http://localhost:8000/cvr/get-person-info" -H "accept: application/json" -H "Content-Type: application/json" -d "{\"name\": \"Henrik Andersen\"}"

@@ -38,17 +38,18 @@ class GeneralInfoResponse(BaseModel):
 
 
 
-#Ownership
-class OwnershipInfo(BaseModel):
+# Possible ownership (previously Ownership)
+class PossibleOwnershipInfo(BaseModel):
     owner_name: str
     ownership_percentage: str
     voting_percentage: str
 
-class OwnershipResponse(BaseModel):
+class PossibleOwnershipResponse(BaseModel):
     cvr_number: int
     company_name: str
-    legal_owners: List[str]
-    beneficial_owners: List[str]
+    possible_legal_owners: List[str]
+    possible_beneficial_owners: List[str]
+
 #######
 
 #Key individuals
@@ -63,7 +64,25 @@ class KeyIndividualsResponse(BaseModel):
     fully_liable_partners: List[KeyIndividual]
 ####    
 
+# Exact Ownership
+# DTOs for Ownership Data
+class OwnershipInfo(BaseModel):
+    owner_name: str
+    ownership_percentage: Optional[str] = None
+    voting_percentage: Optional[str] = None
+    ownership_type: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    address: Optional[str] = None  # New field for the owner's address
 
+class OwnershipResponse(BaseModel):
+    cvr_number: int
+    company_name: str
+    legal_owners: List[OwnershipInfo]
+    beneficial_owners: List[OwnershipInfo]
+    terminated_owners: List[OwnershipInfo]  # List for terminated owners
+#####    
+    
 #Doesn't work part starts here
     ###
     ###

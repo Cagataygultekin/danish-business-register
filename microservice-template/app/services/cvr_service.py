@@ -5,6 +5,9 @@ import os
 import json
 import re
 
+from app.dtos.cvr_dto import OwnershipResponse, OwnershipInfo
+
+
 # Load environment variables from the .env file
 load_dotenv()
 
@@ -223,9 +226,9 @@ class CVRService:
 
 
 
-    def get_ownership_info_by_cvr_id(self, cvr_id: int) -> dict:
+    def get_possible_ownership_info_by_cvr_id(self, cvr_id: int) -> dict:
         """
-        Searches for a company by CVR ID and returns its legal, beneficial, and possible ownership information.
+        Searches for a company by CVR ID and returns its possible legal and beneficial ownership information.
         """
         query = {
             "query": {
@@ -241,69 +244,50 @@ class CVRService:
             json=query
         )
 
-        # Check if response status is 200
         if response.status_code != 200:
             raise Exception(f"ElasticSearch query failed with status code {response.status_code}")
 
-        # Log response content for debugging
         data = response.json()
         
         try:
-            # Check and access company data
             hits = data.get('hits', {}).get('hits', [])
             if not hits:
                 raise ValueError("No hits found in response")
 
             company_data = hits[0].get('_source', {}).get('Vrvirksomhed', {})
-
-            # Initialize variables for company info and ownership
             company_name = company_data.get('virksomhedMetadata', {}).get('nyesteNavn', {}).get('navn', 'N/A')
             cvr_number = company_data.get('cvrNummer', 'N/A')
-            legal_owners, beneficial_owners, possible_owners, possible_owners_person = [], [], [], []
+            possible_legal_owners, possible_beneficial_owners = [], []
 
-            # Access participant relations for ownership data
+            # Extract possible ownership data
             participant_relations = company_data.get('deltagerRelation', [])
-            print("Participant Relations Count:", len(participant_relations))
-
             organization_indicators = {"A/S", "ApS", "Inc.", "LLC", "S.A.", "P/S", "Ltd.", "I/S", "INC."}
 
             for relation in participant_relations:
-                # Check if relation or 'deltager' field is None
                 if relation is None or relation.get('deltager') is None:
-                    print("Skipping a None relation or missing 'deltager'")
                     continue
 
                 deltagertype = relation.get('deltager', {}).get('enhedstype', "")
-                print("Deltagertype:", deltagertype)  # Debugging output
-
-                # Process each name entry in 'navne'
                 navne_list = relation.get('deltager', {}).get('navne', [])
                 for navn_entry in navne_list:
                     owner_name = navn_entry.get('navn', "Unknown")
                     
-                    # Distinguish between companies and individual owners
                     if any(indicator in owner_name for indicator in organization_indicators) or deltagertype == "VIRKSOMHED":
-                        possible_owners.append(owner_name)
-                        print(f"Added possible company owner: {owner_name}")
+                        possible_legal_owners.append(owner_name)
                     else:
-                        possible_owners_person.append(owner_name)
-                        print(f"Added possible individual owner: {owner_name}")
+                        possible_beneficial_owners.append(owner_name)
 
-            # Compile result
             result = {
                 "cvr_number": cvr_number,
                 "company_name": company_name,
-                "legal_owners": legal_owners,
-                "beneficial_owners": beneficial_owners,
-                "possible_owners": list(dict.fromkeys(possible_owners)),
-                "possible_owners_person": list(dict.fromkeys(possible_owners_person))
+                "possible_legal_owners": list(dict.fromkeys(possible_legal_owners)),
+                "possible_beneficial_owners": list(dict.fromkeys(possible_beneficial_owners))
             }
-            print("Ownership Info Result:", result)  # Final debug output
             return result
 
         except Exception as e:
-            print("Error:", str(e))  # Log the error message
             raise Exception(f"An error occurred while parsing the company data: {str(e)}")
+
 
 
 
@@ -404,6 +388,165 @@ class CVRService:
 
 
 
+
+    def get_ownership_info(self, cvr_id: int) -> OwnershipResponse:
+        query = {
+            "query": {
+                "match": {
+                    "Vrvirksomhed.cvrNummer": cvr_id
+                }
+            }
+        }
+
+        response = requests.post(f"{self.base_url}", auth=self.auth, json=query)
+        if response.status_code != 200:
+            raise Exception(f"Query failed with status code {response.status_code}")
+
+        data = response.json()
+        company_data = data['hits']['hits'][0]['_source']['Vrvirksomhed']
+
+        legal_owners, beneficial_owners, terminated_owners = [], [], []
+
+        for relation in company_data.get('deltagerRelation', []):
+            if relation.get('deltager') is None:
+                continue
+            
+            navne = relation.get('deltager', {}).get('navne', [])
+            organisationer = relation.get('organisationer', [])
+
+            owner_name = None
+            for navn_entry in navne:
+                owner_name = navn_entry['navn']  # Get the last name in the sequence
+
+            # Format the owner's address
+            address = self._format_owner_address(relation.get("deltager", {}).get("beliggenhedsadresse", []))
+
+            for org in organisationer:
+                org_name = org.get('organisationsNavn', [{}])[0].get('navn')
+                if org_name == "EJERREGISTER":
+                    owner_type = "Legal"
+                elif org_name == "Reelle ejere":
+                    owner_type = "Beneficial"
+                else:
+                    continue
+
+                # Process ownership attributes
+                ownership_percentage, voting_percentage, start_date, end_date = (
+                    self._get_ownership_details(org)
+                )
+
+                ownership_info = OwnershipInfo(
+                    owner_name=owner_name,
+                    ownership_percentage=ownership_percentage,
+                    voting_percentage=voting_percentage,
+                    ownership_type="Terminated" if end_date else owner_type,
+                    start_date=start_date,
+                    end_date=end_date,
+                    address=address
+                )
+
+                if end_date:  # Classify as terminated if end_date is present
+                    terminated_owners.append(ownership_info)
+                elif owner_type == "Legal":
+                    legal_owners.append(ownership_info)
+                else:
+                    beneficial_owners.append(ownership_info)
+
+        return OwnershipResponse(
+            cvr_number=cvr_id,
+            company_name=company_data.get('virksomhedMetadata', {}).get('nyesteNavn', {}).get('navn', 'N/A'),
+            legal_owners=legal_owners,
+            beneficial_owners=beneficial_owners,
+            terminated_owners=terminated_owners
+        )
+
+    def _format_owner_address(self, address_data: list) -> str:
+        """
+        Formats the address for a single owner using available information.
+        If `fritekst` is provided, it uses it directly; otherwise, it constructs the address.
+        """
+        if not address_data:
+            return "N/A"
+
+        # Use the most recent address (last in list)
+        latest_address = address_data[-1] if address_data else {}
+
+        # Use `fritekst` if available
+        if latest_address.get("fritekst"):
+            formatted_address = latest_address["fritekst"].replace("\n", ", ").strip()
+        else:
+            # Construct address manually if `fritekst` is not available
+            vejnavn = str(latest_address.get("vejnavn") or "").strip()
+            husnummer = str(latest_address.get("husnummerFra") or "").strip()
+            bogstav = str(latest_address.get("bogstavFra") or "").strip()
+            etage = str(latest_address.get("etage") or "").strip()
+            sidedoer = str(latest_address.get("sidedoer") or "").strip()
+            postnummer = str(latest_address.get("postnummer") or "").strip()
+            postdistrikt = str(latest_address.get("postdistrikt") or "").strip()
+            
+            kommune = str(latest_address.get("kommune", {}).get("kommuneNavn") or "").strip() \
+                if isinstance(latest_address.get("kommune"), dict) else ""
+            
+            address_parts = [
+                vejnavn,
+                f"{husnummer}{bogstav}" if husnummer or bogstav else "",
+                etage,
+                sidedoer,
+                f"{postnummer} {postdistrikt}".strip() if postnummer or postdistrikt else "",
+                kommune
+            ]
+
+            formatted_address = ', '.join(part for part in address_parts if part) if address_parts else "N/A"
+
+        # Append the country code if available
+        landekode = latest_address.get("landekode")
+        if landekode:
+            formatted_address = f"{formatted_address}, {landekode}"
+
+        return formatted_address if formatted_address else "N/A"
+
+
+
+
+    def _get_ownership_details(self, organisation):
+        """
+        Extracts ownership details including ownership percentage, voting percentage,
+        start date, and end date (for terminated owners).
+        """
+        ownership_percentage = voting_percentage = start_date = end_date = None
+
+        for medlemsData in organisation.get("medlemsData", []):
+            for attr in medlemsData.get("attributter", []):
+                if attr["type"] == "EJERANDEL_PROCENT":
+                    for value in attr["vaerdier"]:
+                        # Capture ownership percentage, start date, and end date
+                        ownership_percentage = value["vaerdi"]
+                        start_date = value["periode"].get("gyldigFra")
+                        end_date = value["periode"].get("gyldigTil")
+                        
+                elif attr["type"] == "EJERANDEL_STEMMERET_PROCENT":
+                    for value in attr["vaerdier"]:
+                        # Capture voting percentage for the corresponding period
+                        if start_date == value["periode"].get("gyldigFra") and end_date == value["periode"].get("gyldigTil"):
+                            voting_percentage = value["vaerdi"]
+
+        return ownership_percentage, voting_percentage, start_date, end_date
+
+   
+
+    def _get_current_attribute_value(self, organisation, attribute_type):
+        """
+        Helper to fetch a specific attribute value (e.g., 'EJERANDEL_PROCENT') and its start date (gyldigFra)
+        from the organisation data. Only considers the attribute if 'gyldigTil' is null, meaning the owner is current.
+        """
+        for medlemsData in organisation.get("medlemsData", []):
+            for attr in medlemsData.get("attributter", []):
+                if attr["type"] == attribute_type:
+                    # Check if 'gyldigTil' is null for current ownership
+                    for value in attr["vaerdier"]:
+                        if value["periode"].get("gyldigTil") is None:
+                            return value["vaerdi"], value["periode"].get("gyldigFra")
+        return None, None  # Return None for both if not found
 
 
 
