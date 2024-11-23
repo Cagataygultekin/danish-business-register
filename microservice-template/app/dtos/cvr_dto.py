@@ -82,6 +82,16 @@ class OwnershipResponse(BaseModel):
     beneficial_owners: List[OwnershipInfo]
     terminated_owners: List[OwnershipInfo]  # List for terminated owners
 #####    
+
+#PDF Download
+class PDFDownloadRequest(BaseModel):
+    cvr_id: int
+
+class PDFDownloadResponse(BaseModel):
+    file_name: str
+    file_path: str
+    message: str
+
     
 #Doesn't work part starts here
     ###

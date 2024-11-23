@@ -552,6 +552,94 @@ class CVRService:
 
 
 
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import os
+import time
+
+class PDFService:
+    def __init__(self):
+        self.base_url = "https://datacvr.virk.dk/gateway/pdf/hentVirksomhedsvisningSomPdf"
+        self.download_dir = os.path.abspath("./downloads")  # Use absolute path for clarity
+        os.makedirs(self.download_dir, exist_ok=True)  # Ensure download directory exists
+
+        # Setup Selenium WebDriver with Chrome options
+        chrome_options = webdriver.ChromeOptions()
+        chrome_options.add_argument("--headless")  # Headless mode
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.6778.69 Safari/537.36")
+        chrome_options.add_experimental_option("prefs", {
+            "download.default_directory": self.download_dir,
+            "download.prompt_for_download": False,
+            "plugins.always_open_pdf_externally": True,  # Ensure PDFs are downloaded directly
+        })
+
+        # ChromeDriver configuration
+        # The only thing need to change depends on the device
+        service = Service("C:/Users/cagat/OneDrive/Masaüstü/learning_scrapping/for_selenium/chromedriver-win64/chromedriver.exe")
+        self.driver = webdriver.Chrome(service=service, options=chrome_options)
+
+    def wait_for_pdf_download(self, expected_filename: str, timeout: int = 60) -> str:
+        """
+        Waits for the PDF download to complete and returns the full file path.
+        """
+        for _ in range(timeout):
+            # Check if the file or partially downloaded file exists
+            for filename in os.listdir(self.download_dir):
+                if filename.startswith(expected_filename) and not filename.endswith(".crdownload"):
+                    return os.path.join(self.download_dir, filename)
+            time.sleep(1)  # Wait for a second before retrying
+        raise Exception("PDF download timed out or file not found.")
+
+    def download_pdf(self, cvr_id: int) -> dict:
+        """
+        Downloads the PDF for a given CVR ID and waits for it to complete.
+
+        Args:
+            cvr_id (int): The CVR ID of the company.
+
+        Returns:
+            dict: A dictionary with file path, file name, and a message.
+        """
+        try:
+            url = f"{self.base_url}?cvrnummer={cvr_id}&locale=en"
+            print(f"Navigating to URL: {url}")
+            self.driver.get(url)
+            print("URL loaded in browser. Waiting for PDF download...")
+
+            # Wait for the file to download
+            expected_filename = f"{cvr_id}+-+Full+view"
+            downloaded_file_path = self.wait_for_pdf_download(expected_filename)
+            print(f"PDF downloaded to: {downloaded_file_path}")
+
+            # Success response
+            return {
+                "file_path": downloaded_file_path,
+                "file_name": os.path.basename(downloaded_file_path),
+                "message": "PDF downloaded successfully."
+            }
+
+        except Exception as e:
+            print(f"Error downloading PDF: {e}")
+            raise Exception(f"Error downloading PDF: {e}")
+
+    def close_driver(self):
+        """
+        Manually close the WebDriver when no longer needed.
+        """
+        try:
+            self.driver.quit()
+        except Exception as e:
+            print(f"Error closing the driver: {e}")
+
+
+
+
+
 
 
 

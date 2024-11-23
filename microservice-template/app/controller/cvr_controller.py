@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException
 from app.services.cvr_service import CVRService
-from app.dtos.cvr_dto import CompanyRequest, CompanyResponse, CompanyInfo, CompanySearchResponse, CompanyDataResponse, GeneralInfoResponse,PersonRequest, PersonInfoResponse, PossibleOwnershipInfo, PossibleOwnershipResponse,KeyIndividualsResponse, KeyIndividual, OwnershipInfo, OwnershipResponse
+from app.dtos.cvr_dto import CompanyRequest, CompanyResponse, CompanyInfo, CompanySearchResponse, CompanyDataResponse, GeneralInfoResponse,PersonRequest, PersonInfoResponse, PossibleOwnershipInfo, PossibleOwnershipResponse,KeyIndividualsResponse, KeyIndividual, OwnershipInfo, OwnershipResponse, PDFDownloadResponse, PDFDownloadRequest
+from app.services.cvr_service import PDFService
 
 router = APIRouter()
 cvr_service = CVRService()
+pdf_service = PDFService()
 
 @router.post("/get-cvr-id", response_model=CompanyResponse)
 def get_cvr_id(company_request: CompanyRequest):
@@ -111,7 +113,40 @@ def get_ownership_info(cvr_id: int):
         return ownership_data
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-      
+
+
+
+@router.post("/download-pdf", response_model=PDFDownloadResponse)
+def download_pdf(request: PDFDownloadRequest):
+    """
+    Endpoint to download the PDF for a given CVR ID.
+    """
+    try:
+        print(f"Request received to download PDF for CVR ID: {request.cvr_id}")
+        result = pdf_service.download_pdf(request.cvr_id)
+        print(f"PDF downloaded successfully: {result}")
+        return PDFDownloadResponse(
+            file_name=result["file_name"],
+            file_path=result["file_path"],
+            message=result["message"]
+        )
+    except Exception as e:
+        # Log error and provide a meaningful error message
+        print(f"Error occurred in PDF download: {e}")
+        raise HTTPException(status_code=500, detail="Failed to download PDF. Check server logs for details.")
+
+
+    
+"""    
+@router.post("/download-pdf", response_model=PDFDownloadResponse)
+async def download_pdf(request: PDFDownloadRequest):
+    download_path = "/path/to/download"  # Update this path to your desired download location
+    try:
+        file_path = pdf_download_service.download_company_pdf(request.cvr_id, download_path)
+        return PDFDownloadResponse(file_path=file_path, message="PDF downloaded successfully.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+"""          
 #Doesn't work part starts here
     ###
     ###
