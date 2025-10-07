@@ -12,14 +12,19 @@ A FastAPI-based microservice for retrieving and processing company data from the
 7. Environment-based configuration (no secrets in code)
 8. Interactive API docs available via Swagger and ReDoc 
 
-## Project Structure 
-app/ 
--controller/ # FastAPI routers (API endpoints) 
--services/ # Business logic and CVR API interactions
--dtos/ # Data Transfer Objects (request/response models) 
-config.py # Environment configuration
-run.py # Entry point for FastAPI 
-requirements.txt
+## Project Structure
+```text
+.
+├── app/
+│   ├── controller/    # FastAPI routers (API endpoints)
+│   ├── services/      # Business logic and CVR API interactions
+│   └── dtos/          # Data Transfer Objects (request/response models)
+├── config.py          # Environment configuration
+├── run.py             # Entry point for FastAPI
+└── requirements.txt
+```
+
+
 
 ## Getting Started 
 
