@@ -5,14 +5,16 @@ A FastAPI-based microservice for retrieving and processing company data from the
 ## Features
 - REST API endpoints built with **FastAPI** - Retrieve company details, ownership structures, and key individuals via the CVR API - Search companies by name or CVR ID - Download official company PDFs (via headless Selenium browser automation) - Structured JSON responses using **Pydantic DTOs** - Robust error handling and API rate-limit management - Environment-based configuration (no secrets in code) - Interactive API docs available via Swagger and ReDoc 
 
+```markdown
 ## Project Structure
-app/ 
-controller/ # FastAPI routers (API endpoints) 
-services/ # Business logic and CVR API interactions 
-dtos/ # Data Transfer Objects (request/response models) 
-config.py # Environment configuration 
-run.py # Entry point for FastAPI 
-requirements.txt 
+- `app/`
+  - `controller/` – FastAPI routers (API endpoints)
+  - `services/` – Business logic and CVR API interactions
+  - `dtos/` – Data Transfer Objects (request/response models)
+- `config.py` – Environment configuration
+- `run.py` – Entry point for FastAPI
+- `requirements.txt`
+```
 
 ## Getting Started 
 
