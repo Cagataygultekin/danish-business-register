@@ -15,7 +15,7 @@ def create_app():
 def create_app():
     app = FastAPI(
         title="CVR Data API",
-        description="API to retrieve CVR-ID based on company name",
+        description="API to retrieve CVR based data like General Information, Possible Ownership Information, Key Individuals, and Ownership Information.",
         version="1.0.0"
     )
     app.include_router(cvr_controller.router, prefix="/cvr", tags=["CVR"])

@@ -1,3 +1,4 @@
+from pandas import options
 import requests
 from app.config import Settings
 from dotenv import load_dotenv
@@ -565,6 +566,7 @@ class PDFService:
         self.base_url = "https://datacvr.virk.dk/gateway/pdf/hentVirksomhedsvisningSomPdf"
         self.download_dir = os.path.abspath("./downloads")  # Use absolute path for clarity
         os.makedirs(self.download_dir, exist_ok=True)  # Ensure download directory exists
+        self.driver = None   # make sure attribute always exists
 
         # Setup Selenium WebDriver with Chrome options
         chrome_options = webdriver.ChromeOptions()
@@ -577,12 +579,19 @@ class PDFService:
             "download.prompt_for_download": False,
             "plugins.always_open_pdf_externally": True,  # Ensure PDFs are downloaded directly
         })
+        
+        # Selenium Manager auto-installs correct driver
+        self.driver = webdriver.Chrome(options=chrome_options)
 
         # ChromeDriver configuration
         # The only thing need to change depends on the device
-        service = Service("C:/Users/cagat/OneDrive/Masaüstü/learning_scrapping/for_selenium/chromedriver-win64/chromedriver.exe")
+        """
+        service = Service(r"for_selenium\chromedriver-win64\chromedriver.exe")
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
-
+        """
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless=new")
+        driver = webdriver.Chrome(options=options)  # Selenium will auto-download + match the driver
     def wait_for_pdf_download(self, expected_filename: str, timeout: int = 60) -> str:
         """
         Waits for the PDF download to complete and returns the full file path.
