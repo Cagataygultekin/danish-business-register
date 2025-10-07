@@ -3,18 +3,23 @@
 A FastAPI-based microservice for retrieving and processing company data from the [Danish Business Register (CVR)](https://datacvr.virk.dk). This project was developed at the Technical University of Munich as part of an interdisciplinary development project. It demonstrates scalable API design, data transformation, and automation for business and research use cases. 
 
 ## Features
-- REST API endpoints built with **FastAPI** - Retrieve company details, ownership structures, and key individuals via the CVR API - Search companies by name or CVR ID - Download official company PDFs (via headless Selenium browser automation) - Structured JSON responses using **Pydantic DTOs** - Robust error handling and API rate-limit management - Environment-based configuration (no secrets in code) - Interactive API docs available via Swagger and ReDoc 
+1. REST API endpoints built with **FastAPI**
+2. Retrieve company details, ownership structures, and key individuals via the CVR API
+3. Search companies by name or CVR ID
+4. Download official company PDFs (via headless Selenium browser automation)
+5. Structured JSON responses using **Pydantic DTOs**
+6. Robust error handling and API rate-limit management
+7. Environment-based configuration (no secrets in code)
+8. Interactive API docs available via Swagger and ReDoc 
 
-```markdown
-## Project Structure
-- `app/`
-  - `controller/` – FastAPI routers (API endpoints)
-  - `services/` – Business logic and CVR API interactions
-  - `dtos/` – Data Transfer Objects (request/response models)
-- `config.py` – Environment configuration
-- `run.py` – Entry point for FastAPI
-- `requirements.txt`
-```
+## Project Structure 
+app/ 
+-controller/ # FastAPI routers (API endpoints) 
+-services/ # Business logic and CVR API interactions
+-dtos/ # Data Transfer Objects (request/response models) 
+config.py # Environment configuration
+run.py # Entry point for FastAPI 
+requirements.txt
 
 ## Getting Started 
 
