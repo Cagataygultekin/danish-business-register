@@ -1,111 +1,31 @@
-# How to use this template
-See below for the reason behind each component. 
-```
-microservice-template/
-│
-├── app/                         # Application code for the microservice.
-│   ├── controller/              # Controllers to handle API requests
-│   │   ├── init.py
-│   │   └── example_controller.py 
-│   │
-│   ├── dtos/                    # Data Transfer Objects (DTOs)
-│   │   ├── init.py
-│   │   └── example.py           
-│   │
-│   ├── repositories/            # Data access layer (repositories)
-│   │   └── init.py
-│   │
-│   ├── services/                # Business logic services
-│   │   ├── init.py
-│   │   ├── example_service.py   
-│   │   ├── app_factory.py       # Application factory pattern setup
-│   │   ├── config.py            # Configuration settings for the app, ALL environment variables of this project.
-│   │   └── exceptions.py        # Custom exceptions for the services, caught in the controllers.
-│
-├── your_microservice/           # Your microservice-specific code
-│   └── init.py
-│
-├── README.md                    # This documentation file
-├── requirements.txt             # Python dependencies
-└── run.py                       # Script to start the application
-```
+# Danish Business Register Microservice A FastAPI-based microservice for retrieving and processing company data from the [Danish Business Register (CVR)](https://datacvr.virk.dk). This project was developed at the Technical University of Munich as part of an interdisciplinary development project. It demonstrates scalable API design, data transformation, and automation for business and research use cases. ## ✨ Features - REST API endpoints built with **FastAPI** - Retrieve company details, ownership structures, and key individuals via the CVR API - Search companies by name or CVR ID - Download official company PDFs (via headless Selenium browser automation) - Structured JSON responses using **Pydantic DTOs** - Robust error handling and API rate-limit management - Environment-based configuration (no secrets in code) - Interactive API docs available via Swagger and ReDoc ## 📂 Project Structure app/ controller/ # FastAPI routers (API endpoints) services/ # Business logic and CVR API interactions dtos/ # Data Transfer Objects (request/response models) config.py # Environment configuration run.py # Entry point for FastAPI requirements.txt ## 🚀 Getting Started ### Prerequisites - Python 3.8+ - Google Chrome installed (for PDF download functionality) ### Installation 1. Clone the repository:
+bash
+   git clone https://github.com/your-username/danish-business-register.git
+   cd danish-business-register
+2. Create and activate a virtual environment:
+python -m venv venv
+source venv/bin/activate   # Linux/Mac
+venv\Scripts\activate      # Windows
+3. Install dependencies:
+pip install -r requirements.txt
+4. Set up your .env file in the project root:
+CVR_API_URL=...
+CVR_API_USERNAME=...
+CVR_API_PASSWORD=...
+ELASTICSEARCH_VERSION=6.8.16
 
-### Controllers
+5. Running the API:
+uvicorn run:app --reload
 
-Controllers handle API requests and manage the flow of data between the service layer and the client. This is the entry point for requests into the system.
+## API Endpoints
 
-### DTOs
-
-DTOs (Data Transfer Objects) represent simple data structures that are passed between layers. They ensure data is structured in a predictable way when interacting with the controllers, services, and repositories.
-
-### Repositories
-
-Repositories provide a layer of abstraction for data access logic. They interact with the database or any other data sources directly and provide the required data to the services.
-
-### Services
-
-Services contain the business logic of the application. They interact with the repositories and manage core operations, ensuring that the application’s logic is centralized in one place.
-
-### Microservice Code
-
-The `your_microservice/` directory allows you to separate any specific microservice code, keeping the core business logic and microservice-specific operations separate.
-
-## Coding Conventions
-
-1. **Docstring Standards:**
-   - In every method or function's docstring, exceptions must be documented clearly.
-   - Example format in docstring:
-     ```python
-     """
-     :raises:
-         CustomException: Description of why the exception is raised
-     """
-     ```
-
-2. **Layered Architecture Flow:**
-   - The flow of the application must follow a strict order:
-
-     ```plaintext
-     +------------------+
-     |      Client      |
-     +------------------+
-               |
-               v
-     +------------------+
-     |    Controller    |
-     +------------------+
-               |
-               v
-     +------------------+
-     |     Services     |
-     +------------------+
-       /           |      \
-      /            |       \
-     +--------+  +--------+  +------------------+
-     |  Repo  |  | Service|  | Your Microservice|
-     +--------+  +--------+  +------------------+
-    ```
-
-
-3. **Exception Handling:**
-   - All exceptions in the system are to be caught in the controllers. This ensures that the service and repository layers are free from handling errors directly. Instead, they should throw exceptions that are handled gracefully in the controllers.
-   
-     - Controllers should capture exceptions like this:
-       ```python
-       try:
-           # Call service method
-       except CustomException as e:
-           return {"message": str(e)}, 400
-       ```
-
-   - Each service should raise meaningful exceptions, and they must be documented clearly in the docstrings of both the service and controller layers.
-
-## Getting Started
-
-### Prerequisites
-
-To set up this project, you need Python 3.x and the dependencies listed in `requirements.txt`.
-
-### Build a Docker Image for Google Cloud Run
-```bash 
-docker build --platform linux/amd64 -t [LOCATION]-docker.pkg.dev/[PROJECT_ID]/[ARTIFACT_REGISTRY_NAME]/v[MAJOR_VERSION].[SUB_VERSION].[SUBSUB_VERSION] .```
+| Functionality                          | Endpoint                                       | Method |
+|----------------------------------------|------------------------------------------------|--------|
+| Get CVR ID by name                     | `/cvr/get-cvr-id`                              | POST   |
+| Search companies by partial name        | `/cvr/get-companies-by-partial-name`           | POST   |
+| Retrieve general company information    | `/cvr/get-general-info/{cvr_id}`               | GET    |
+| Retrieve ownership details              | `/cvr/ownership/{cvr_id}`                      | GET    |
+| Retrieve possible ownership information | `/cvr/get-possible-ownership-info/{cvr_id}`    | GET    |
+| Retrieve key individuals                | `/cvr/get-key-individuals/{cvr_id}`            | GET    |
+| Download company PDF                    | `/cvr/download-pdf`                            | POST   |
+| Retrieve person information (restricted)| `/cvr/get-person-info`                         | GET    |
