@@ -1,6 +1,6 @@
 # Danish Business Register Microservice 
 
-A FastAPI-based microservice for retrieving and processing company data from the [Danish Business Register (CVR)](https://datacvr.virk.dk). This project was developed at the Technical University of Munich as part of an interdisciplinary development project. It demonstrates scalable API design, data transformation, and automation for business and research use cases. 
+A FastAPI-based microservice for retrieving and processing company data from the [Danish Business Register (CVR)](https://datacvr.virk.dk). This project was developed at Legalian GmbH as part of a practical software engineering internship. It demonstrates scalable API design, data transformation, and automation for business and research use cases. 
 
 ## Features
 1. REST API endpoints built with **FastAPI**
